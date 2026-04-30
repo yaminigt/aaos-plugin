@@ -1,0 +1,13 @@
+node_modules
+.DS_Store
+*.log
+.env
+.env.local
+
+# Vite cache
+.vite
+
+# Build output is committed for deploy convenience; remove the next two lines
+# if you would rather rebuild on each deploy.
+# index.js
+# index.js.map
