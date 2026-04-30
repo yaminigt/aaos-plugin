@@ -4,10 +4,16 @@ import react from '@vitejs/plugin-react'
 // AAOS plugin build config.
 //
 // Output is a single IIFE bundle (`index.js`) that registers itself on
-// `window.DAPlugins['page-plugin']`. React, ReactDOM and the JSX runtime are
-// provided globally by the autowrx host, so they MUST be externalised — never
-// bundle them into the plugin or the host's React instance and the plugin's
-// React instance will diverge and hooks will fail.
+// `window.DAPlugins['page-plugin']`. React and ReactDOM are provided by the
+// autowrx host on `window.React` / `window.ReactDOM`, so we externalise them.
+//
+// IMPORTANT: we do NOT externalise `react/jsx-runtime` even though the autowrx
+// docs suggest doing so. The host only populates `window.React` and
+// `window.ReactDOM` at runtime — there is no `window.jsxRuntime`, so an IIFE
+// that expects it crashes with "jsxRuntime is not defined" the moment the
+// browser executes the bundle. Bundling the small jsx-runtime helpers into
+// the plugin avoids the crash and they still call into the host's React
+// instance, so React is never duplicated.
 
 export default defineConfig({
   plugins: [react()],
@@ -19,18 +25,12 @@ export default defineConfig({
       fileName: () => 'index.js',
     },
     rollupOptions: {
-      external: [
-        'react',
-        'react-dom',
-        'react-dom/client',
-        'react/jsx-runtime',
-      ],
+      external: ['react', 'react-dom', 'react-dom/client'],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
           'react-dom/client': 'ReactDOMClient',
-          'react/jsx-runtime': 'jsxRuntime',
         },
       },
     },
