@@ -17,6 +17,14 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // Browsers don't define `process`. The bundled react/jsx-runtime guards its
+  // dev-only warnings with `process.env.NODE_ENV !== "production"`, so without
+  // these substitutions the IIFE crashes on load with "process is not defined".
+  // Replacing them at build time also lets Rollup tree-shake the dev branch.
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    global: 'globalThis',
+  },
   build: {
     lib: {
       entry: './src/index.tsx',
@@ -38,5 +46,6 @@ export default defineConfig({
     emptyOutDir: false,
     sourcemap: true,
     target: 'es2018',
+    minify: 'esbuild',
   },
 })
