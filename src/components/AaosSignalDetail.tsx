@@ -4,6 +4,7 @@ import {
   getAaosFullPath,
   getAaosPropertyId,
 } from '../data/aaos'
+import { getCovesaMatchesForAaos } from '../data/aaos_covesa_matches'
 import { CheckIcon, CopyIcon, PlusIcon } from './icons'
 
 const React: any = (globalThis as any).React
@@ -121,6 +122,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const propertyId = getAaosPropertyId(signal)
   const fullPath = getAaosFullPath(signal)
   const wishlistApiName = toWishlistApiName(signal)
+  const covesaMatches = getCovesaMatchesForAaos(signal.name)
 
   const wishlistAvailable =
     typeof api?.createWishlistApi === 'function' && !!modelId
@@ -190,6 +192,70 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
                 <td className="v">{p.value}</td>
               </tr>
             ))}
+          </tbody>
+        </table>
+
+        <div className="aaos-section-title has-spacing">
+          COVESA matching signals
+        </div>
+        <table className="aaos-prop-table">
+          <tbody>
+            <tr>
+              <td className="k">Exact matches</td>
+              <td className="v">
+                {covesaMatches.exact.length === 0 ? (
+                  <span>—</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {covesaMatches.exact.map((m) => (
+                      <div
+                        key={`exact-${m}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                        }}
+                      >
+                        <span>{m}</span>
+                        <CopyButton
+                          text={m}
+                          ariaLabel="Copy exact COVESA match"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </td>
+            </tr>
+            <tr>
+              <td className="k">Partial matches</td>
+              <td className="v">
+                {covesaMatches.partial.length === 0 ? (
+                  <span>—</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {covesaMatches.partial.map((m) => (
+                      <div
+                        key={`partial-${m}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                        }}
+                      >
+                        <span>{m}</span>
+                        <CopyButton
+                          text={m}
+                          ariaLabel="Copy partial COVESA match"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </td>
+            </tr>
           </tbody>
         </table>
 
