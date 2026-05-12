@@ -1,8 +1,4 @@
-import {
-  AaosSignal,
-  groupAaosSignals,
-  groupAaosSignalsByArea,
-} from '../data/aaos'
+import { AaosSignal, groupAaosSignals } from '../data/aaos'
 import { ChevronDown, ChevronRight, SearchIcon } from './icons'
 
 const React: any = (globalThis as any).React
@@ -11,33 +7,19 @@ const { useEffect, useMemo, useState } = React
 const cx = (...c: Array<string | false | null | undefined>) =>
   c.filter(Boolean).join(' ')
 
-export type GroupingMode = 'area' | 'name'
-
 type Props = {
   signals: AaosSignal[]
-  groupingMode: GroupingMode
   selectedSignal: AaosSignal | null
   onSelectSignal: (signal: AaosSignal) => void
 }
 
-const AaosGroupList = ({
-  signals,
-  groupingMode,
-  selectedSignal,
-  onSelectSignal,
-}: Props) => {
+const AaosGroupList = ({ signals, selectedSignal, onSelectSignal }: Props) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {},
   )
 
-  const grouped = useMemo(
-    () =>
-      groupingMode === 'area'
-        ? groupAaosSignalsByArea(signals)
-        : groupAaosSignals(signals),
-    [signals, groupingMode],
-  )
+  const grouped = useMemo(() => groupAaosSignals(signals), [signals])
 
   const groupNames = useMemo(
     () => Object.keys(grouped).sort((a, b) => a.localeCompare(b)),
@@ -66,11 +48,6 @@ const AaosGroupList = ({
     [filtered],
   )
 
-  // Reset expansion when grouping mode changes (group keys differ).
-  useEffect(() => {
-    setExpandedGroups({})
-  }, [groupingMode])
-
   // Auto expand groups that contain a search match.
   useEffect(() => {
     if (!searchTerm.trim()) return
@@ -82,12 +59,11 @@ const AaosGroupList = ({
   // Make sure the selected signal's group is expanded.
   useEffect(() => {
     if (!selectedSignal) return
-    const key =
-      groupingMode === 'area' ? selectedSignal.area : selectedSignal.group
+    const key = selectedSignal.group
     setExpandedGroups((prev: Record<string, boolean>) =>
       prev[key] ? prev : { ...prev, [key]: true },
     )
-  }, [selectedSignal, groupingMode])
+  }, [selectedSignal])
 
   const toggleGroup = (group: string) => {
     setExpandedGroups((prev: Record<string, boolean>) => ({
@@ -104,11 +80,7 @@ const AaosGroupList = ({
         </span>
         <input
           className="aaos-input"
-          placeholder={
-            groupingMode === 'area'
-              ? 'Search AAOS signal or vehicle area'
-              : 'Search AAOS signal or group'
-          }
+          placeholder="Search AAOS signal or group"
           value={searchTerm}
           onChange={(e: any) => setSearchTerm(e.target.value)}
         />
@@ -152,9 +124,7 @@ const AaosGroupList = ({
                           onClick={() => onSelectSignal(signal)}
                         >
                           <span className="aaos-signal-name">{signal.name}</span>
-                          <span className="aaos-signal-tag">
-                            {groupingMode === 'area' ? signal.group : signal.area}
-                          </span>
+                          <span className="aaos-signal-tag">{signal.area}</span>
                         </button>
                       )
                     })}

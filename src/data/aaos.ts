@@ -123,8 +123,10 @@ export const getAaosFullPath = (signal: AaosSignal): string =>
   `SYSTEM.${signal.area}.${signal.name}`
 
 /**
- * Groups an array of AAOS signals by their first level group token.
- * Returns a sorted record so callers can render groups in stable order.
+ * Groups an array of AAOS signals by their first level group token (the
+ * substring before the first underscore — INFO, HVAC, EV, …). Signals inside
+ * each group are sorted by name. Returned as a record so callers can render
+ * groups in stable order.
  */
 export const groupAaosSignals = (
   signals: AaosSignal[],
@@ -133,24 +135,6 @@ export const groupAaosSignals = (
   for (const signal of signals) {
     if (!grouped[signal.group]) grouped[signal.group] = []
     grouped[signal.group].push(signal)
-  }
-  for (const key of Object.keys(grouped)) {
-    grouped[key].sort((a, b) => a.name.localeCompare(b.name))
-  }
-  return grouped
-}
-
-/**
- * Groups an array of AAOS signals by their VehicleArea (GLOBAL, SEAT, WHEEL,
- * WINDOW, MIRROR, DOOR, VENDOR). Signals inside each area are sorted by name.
- */
-export const groupAaosSignalsByArea = (
-  signals: AaosSignal[],
-): Record<string, AaosSignal[]> => {
-  const grouped: Record<string, AaosSignal[]> = {}
-  for (const signal of signals) {
-    if (!grouped[signal.area]) grouped[signal.area] = []
-    grouped[signal.area].push(signal)
   }
   for (const key of Object.keys(grouped)) {
     grouped[key].sort((a, b) => a.name.localeCompare(b.name))

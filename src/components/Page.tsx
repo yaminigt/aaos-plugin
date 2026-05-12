@@ -1,13 +1,10 @@
 import { AAOS_SIGNALS, AaosSignal } from '../data/aaos'
-import AaosGroupList, { GroupingMode } from './AaosGroupList'
+import AaosGroupList from './AaosGroupList'
 import AaosSignalDetail from './AaosSignalDetail'
 import { AndroidIcon } from './icons'
 
 const React: any = (globalThis as any).React
 const { useState } = React
-
-const cx = (...c: Array<string | false | null | undefined>) =>
-  c.filter(Boolean).join(' ')
 
 export type PluginAPI = {
   updateModel?: (updates: any) => Promise<any>
@@ -37,14 +34,9 @@ export type PageProps = {
 }
 
 const Page = ({ data, api }: PageProps) => {
-  const [groupingMode, setGroupingMode] = useState<GroupingMode>('area')
   const [selectedSignal, setSelectedSignal] = useState<AaosSignal | null>(null)
 
-  const groupCount =
-    groupingMode === 'area'
-      ? new Set(AAOS_SIGNALS.map((s) => s.area)).size
-      : new Set(AAOS_SIGNALS.map((s) => s.group)).size
-
+  const groupCount = new Set(AAOS_SIGNALS.map((s) => s.group)).size
   const modelId = data?.model?.id
 
   return (
@@ -52,34 +44,9 @@ const Page = ({ data, api }: PageProps) => {
       <div className="aaos-header">
         <div className="aaos-header-title">
           <AndroidIcon />
-          <span>AAOS Vehicle Properties · Group View</span>
+          <span>AAOS Vehicle Properties</span>
         </div>
         <div className="aaos-header-right">
-          <div className="aaos-mode-toggle">
-            <span>Group by:</span>
-            <div className="aaos-mode-pillgroup">
-              <button
-                type="button"
-                className={cx(
-                  'aaos-mode-pill',
-                  groupingMode === 'area' && 'is-active',
-                )}
-                onClick={() => setGroupingMode('area')}
-              >
-                Vehicle Area
-              </button>
-              <button
-                type="button"
-                className={cx(
-                  'aaos-mode-pill',
-                  groupingMode === 'name' && 'is-active',
-                )}
-                onClick={() => setGroupingMode('name')}
-              >
-                Name
-              </button>
-            </div>
-          </div>
           <div className="aaos-header-counter">
             {AAOS_SIGNALS.length} signals · {groupCount} groups
           </div>
@@ -89,7 +56,6 @@ const Page = ({ data, api }: PageProps) => {
       <div className="aaos-body">
         <AaosGroupList
           signals={AAOS_SIGNALS}
-          groupingMode={groupingMode}
           selectedSignal={selectedSignal}
           onSelectSignal={setSelectedSignal}
         />

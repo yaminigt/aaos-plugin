@@ -1,8 +1,27 @@
 {
   "name": "aaos-plugin",
   "version": "1.0.0",
-  "description": "AAOS (Android Automotive OS) VehicleProperty browser as an autowrx plugin.",
+  "description": "AAOS (Android Automotive OS) VehicleProperty browser as an autowrx / digital.auto plugin.",
   "private": true,
+  "license": "MIT",
+  "homepage": "https://github.com/yaminigt/aaos-plugin#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yaminigt/aaos-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yaminigt/aaos-plugin/issues"
+  },
+  "keywords": [
+    "autowrx",
+    "digital-auto",
+    "plugin",
+    "aaos",
+    "android-automotive",
+    "vehicle-signal-specification",
+    "covesa",
+    "sdv"
+  ],
   "scripts": {
     "build": "vite build --config vite.config.js",
     "dev": "vite --config vite.config.js",
