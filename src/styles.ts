@@ -390,6 +390,27 @@ const CSS = `
   display: inline-flex;
   gap: 8px;
 }
+.aaos-someip-subtitle {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--aaos-fg);
+}
+.aaos-code-block {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--aaos-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--aaos-fg);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow: auto;
+}
+.aaos-someip-meta.no-margin {
+  margin-bottom: 0;
+}
 .aaos-segment-btn {
   appearance: none;
   border: 1px solid var(--aaos-border-strong);

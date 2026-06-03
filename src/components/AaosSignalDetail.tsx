@@ -5,7 +5,11 @@ import {
   getAaosPropertyId,
 } from '../data/aaos'
 import { getCovesaMatchesForAaos } from '../data/aaos_covesa_matches'
-import { getSomeipMatchForAaos } from '../data/aaos_someip_matches'
+import {
+  buildSomeipEnvelopeForAaos,
+  findAaosSignalForSomeip,
+  getSomeipMatchForAaos,
+} from '../data/aaos_someip_matches'
 import { CheckIcon, CopyIcon, PlusIcon } from './icons'
 
 const React: any = (globalThis as any).React
@@ -113,8 +117,10 @@ type Status =
   | { kind: 'error'; message: string }
 
 const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
-  const [status, setStatus] = useState<Status>({ kind: 'idle' })
-  const [someipMode, setSomeipMode] = useState<'get' | 'set'>('get')
+  const [statusState, setStatus] = useState({ kind: 'idle' } as Status)
+  const [someipModeState, setSomeipMode] = useState('get')
+  const status = statusState as Status
+  const someipMode = someipModeState as 'get' | 'set'
 
   // Reset status when the selected signal changes.
   useEffect(() => {
@@ -127,6 +133,19 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const wishlistApiName = toWishlistApiName(signal)
   const covesaMatches = getCovesaMatchesForAaos(signal.name)
   const someipMatch = getSomeipMatchForAaos(signal.name)
+  const someipOperation = someipMatch?.operations?.[someipMode]
+  const someipReverseLookup = someipOperation
+    ? findAaosSignalForSomeip(
+        someipMatch.serviceId,
+        someipMatch.instanceId,
+        someipOperation.id,
+      )
+    : null
+  const someipPreview = buildSomeipEnvelopeForAaos(
+    signal.name,
+    someipMode,
+    signal.dataType === 'FLOAT' ? 220.5 : null,
+  )
 
   const wishlistAvailable =
     typeof api?.createWishlistApi === 'function' && !!modelId
@@ -273,9 +292,26 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
               <div className="aaos-someip-meta">
                 <div>{'->'} Service ID: {someipMatch.serviceId}</div>
                 <div>{'->'} Instance ID: {someipMatch.instanceId}</div>
-                {someipMatch.fieldIds?.[someipMode] && (
-                  <div>{'->'} Field ID ({someipMode.toUpperCase()}): {someipMatch.fieldIds[someipMode]}</div>
+                {someipOperation && (
+                  <>
+                    <div>
+                      {'->'} {someipOperation.kind.toUpperCase()} ID ({someipMode.toUpperCase()}): {someipOperation.id}
+                    </div>
+                    {someipOperation.eventGroupId && (
+                      <div>{'->'} Event Group ID: {someipOperation.eventGroupId}</div>
+                    )}
+                    {someipOperation.transport && (
+                      <div>{'->'} Transport: {someipOperation.transport}</div>
+                    )}
+                    {someipOperation.port && (
+                      <div>{'->'} Port: {someipOperation.port}</div>
+                    )}
+                    {typeof someipOperation.updateCycleMs === 'number' && (
+                      <div>{'->'} Update Cycle: {someipOperation.updateCycleMs} ms</div>
+                    )}
+                  </>
                 )}
+                {someipMatch.notes && <div>{'->'} Note: {someipMatch.notes}</div>}
               </div>
               <div className="aaos-someip-actions">
                 <button
@@ -303,6 +339,29 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
                   Set
                 </button>
               </div>
+
+              {someipPreview && (
+                <>
+                  <div className="aaos-someip-subtitle">AAOS to SOME/IP envelope</div>
+                  <pre className="aaos-code-block">
+                    {JSON.stringify(someipPreview, null, 2)}
+                  </pre>
+                </>
+              )}
+
+              {someipReverseLookup && someipOperation && (
+                <>
+                  <div className="aaos-someip-subtitle">Reverse lookup</div>
+                  <div className="aaos-someip-meta no-margin">
+                    <div>
+                      {'->'} Incoming SOME/IP {someipOperation.kind} {someipOperation.id} on service {someipMatch.serviceId} / instance {someipMatch.instanceId}
+                    </div>
+                    <div>
+                      {'->'} Maps back to AAOS signal: {someipReverseLookup.aaosSignalName}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}
