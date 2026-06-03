@@ -5,7 +5,7 @@ import {
   getAaosPropertyId,
 } from '../data/aaos'
 import { getCovesaMatchesForAaos } from '../data/aaos_covesa_matches'
-import { SomeipMode, TIRE_PRESSURE_SOMEIP_SIGNALS } from '../data/vsomeip'
+import { getSomeipMatchForAaos } from '../data/aaos_someip_matches'
 import { CheckIcon, CopyIcon, PlusIcon } from './icons'
 
 const React: any = (globalThis as any).React
@@ -114,18 +114,19 @@ type Status =
 
 const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
-  const [someipModes, setSomeipModes] = useState<Record<string, SomeipMode>>({})
+  const [someipMode, setSomeipMode] = useState<'get' | 'set'>('get')
 
   // Reset status when the selected signal changes.
   useEffect(() => {
     setStatus({ kind: 'idle' })
-    setSomeipModes({})
+    setSomeipMode('get')
   }, [signal.name])
 
   const propertyId = getAaosPropertyId(signal)
   const fullPath = getAaosFullPath(signal)
   const wishlistApiName = toWishlistApiName(signal)
   const covesaMatches = getCovesaMatchesForAaos(signal.name)
+  const someipMatch = getSomeipMatchForAaos(signal.name)
 
   const wishlistAvailable =
     typeof api?.createWishlistApi === 'function' && !!modelId
@@ -173,12 +174,6 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   }
   if (signal.dataEnumBitFlags) {
     properties.push({ key: 'Bit Flags', value: 'data_enum_bit_flags' })
-  }
-
-  const showSomeipPlaceholder = signal.name === 'TIRE_PRESSURE'
-
-  const setSomeipMode = (signalName: string, mode: SomeipMode) => {
-    setSomeipModes((prev) => ({ ...prev, [signalName]: mode }))
   }
 
   return (
@@ -268,48 +263,40 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
           </tbody>
         </table>
 
-        {showSomeipPlaceholder && (
+        {someipMatch && (
           <>
             <div className="aaos-section-title has-spacing">
-              SOME/IP tire pressure placeholder
+              SOME/IP Mapping
             </div>
-            <div className="aaos-someip-list">
-              {TIRE_PRESSURE_SOMEIP_SIGNALS.map((item) => {
-                const activeMode = someipModes[item.signal] || 'get'
-                const fieldId = item.fieldIds[activeMode]
-                return (
-                  <div className="aaos-someip-card" key={item.signal}>
-                    <div className="aaos-someip-path">{item.signal}</div>
-                    <div className="aaos-someip-meta">
-                      <div>{'->'} Service ID: {item.serviceId}</div>
-                      <div>{'->'} Instance ID: {item.instanceId}</div>
-                      <div>{'->'} Field ID ({activeMode.toUpperCase()}): {fieldId}</div>
-                    </div>
-                    <div className="aaos-someip-actions">
-                      <button
-                        type="button"
-                        className={cx(
-                          'aaos-segment-btn',
-                          activeMode === 'get' && 'is-active',
-                        )}
-                        onClick={() => setSomeipMode(item.signal, 'get')}
-                      >
-                        Get
-                      </button>
-                      <button
-                        type="button"
-                        className={cx(
-                          'aaos-segment-btn',
-                          activeMode === 'set' && 'is-active',
-                        )}
-                        onClick={() => setSomeipMode(item.signal, 'set')}
-                      >
-                        Set
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="aaos-someip-card">
+              <div className="aaos-someip-path">{signal.name}</div>
+              <div className="aaos-someip-meta">
+                <div>{'->'} Service ID: {someipMatch.serviceId}</div>
+                <div>{'->'} Instance ID: {someipMatch.instanceId}</div>
+                <div>{'->'} Field ID ({someipMode.toUpperCase()}): {someipMatch.fieldIds[someipMode]}</div>
+              </div>
+              <div className="aaos-someip-actions">
+                <button
+                  type="button"
+                  className={cx(
+                    'aaos-segment-btn',
+                    someipMode === 'get' && 'is-active',
+                  )}
+                  onClick={() => setSomeipMode('get')}
+                >
+                  Get
+                </button>
+                <button
+                  type="button"
+                  className={cx(
+                    'aaos-segment-btn',
+                    someipMode === 'set' && 'is-active',
+                  )}
+                  onClick={() => setSomeipMode('set')}
+                >
+                  Set
+                </button>
+              </div>
             </div>
           </>
         )}
