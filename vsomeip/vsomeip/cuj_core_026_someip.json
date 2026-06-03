@@ -1,0 +1,72 @@
+{
+  "unicast": "192.168.98.1",
+  "routing": "cuj_core_026_someip",
+  "applications": [
+    {
+      "name": "cuj_core_026_someip",
+      "id": "0x5100"
+    }
+  ],
+  "services": [
+    {
+      "service": "0x5100",
+      "instance": "0x1000",
+      "reliable": {
+        "port": "5100",
+        "magic-cookies": false
+      },
+      "unreliable": "5101",
+      "events": [
+        {
+          "event": "0x8510",
+          "is_field": false,
+          "is_reliable": true,
+          "update-cycle": "1000"
+        }
+      ],
+      "eventgroups": [
+        {
+          "eventgroup": "0x9510",
+          "events": [
+            "0x8510"
+          ]
+        },
+        {
+          "eventgroup": "0x9511",
+          "events": [
+            "0x8510"
+          ]
+        }
+      ]
+    }
+  ],
+  "logging": {
+    "level": "trace",
+    "console": true,
+    "file": {
+      "enable": true,
+      "path": "/tmp/vsomeip.log"
+    },
+    "dlt": false,
+    "version": {
+      "enable": false
+    }
+  },
+  "service-discovery": {
+    "port": "30490",
+    "protocol": "udp",
+    "enable": true,
+    "multicast": "224.0.0.0",
+    "initial_delay_min": "10",
+    "initial_delay_max": "100",
+    "repetitions_base_delay": "200",
+    "repetitions_max": "3",
+    "ttl": "3",
+    "cyclic_offer_delay": "2000",
+    "request_response_delay": "1500"
+  },
+  "tracing": {
+    "enable": true,
+    "sd_enable": true
+  }
+}

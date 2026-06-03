@@ -1,0 +1,66 @@
+{
+  "unicast": "192.168.98.1",
+  "routing": "group_tester",
+  "applications": [
+    {
+      "name": "group_tester",
+      "id": "0x3200"
+    }
+  ],
+  "services": [
+    {
+      "service": "0x3200",
+      "instance": "0x1000",
+      "reliable": {
+        "port": "3200",
+        "magic-cookies": false
+      },
+      "unreliable": "3201",
+      "events": [
+        {
+          "event": "0x8320",
+          "is_field": false,
+          "is_reliable": true,
+          "update-cycle": "1000"
+        }
+      ],
+      "eventgroups": [
+        {
+          "eventgroup": "0x9320",
+          "events": [
+            "0x8320"
+          ]
+        }
+      ]
+    }
+  ],
+  "logging": {
+    "level": "trace",
+    "console": true,
+    "file": {
+      "enable": true,
+      "path": "/tmp/vsomeip.log"
+    },
+    "dlt": false,
+    "version": {
+      "enable": false
+    }
+  },
+  "service-discovery": {
+    "port": "30490",
+    "protocol": "udp",
+    "enable": true,
+    "multicast": "224.0.0.0",
+    "initial_delay_min": "10",
+    "initial_delay_max": "100",
+    "repetitions_base_delay": "200",
+    "repetitions_max": "3",
+    "ttl": "3",
+    "cyclic_offer_delay": "2000",
+    "request_response_delay": "1500"
+  },
+  "tracing": {
+    "enable": true,
+    "sd_enable": true
+  }
+}

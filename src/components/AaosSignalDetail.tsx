@@ -5,6 +5,7 @@ import {
   getAaosPropertyId,
 } from '../data/aaos'
 import { getCovesaMatchesForAaos } from '../data/aaos_covesa_matches'
+import { SomeipMode, TIRE_PRESSURE_SOMEIP_SIGNALS } from '../data/vsomeip'
 import { CheckIcon, CopyIcon, PlusIcon } from './icons'
 
 const React: any = (globalThis as any).React
@@ -113,10 +114,12 @@ type Status =
 
 const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
+  const [someipModes, setSomeipModes] = useState<Record<string, SomeipMode>>({})
 
   // Reset status when the selected signal changes.
   useEffect(() => {
     setStatus({ kind: 'idle' })
+    setSomeipModes({})
   }, [signal.name])
 
   const propertyId = getAaosPropertyId(signal)
@@ -170,6 +173,12 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   }
   if (signal.dataEnumBitFlags) {
     properties.push({ key: 'Bit Flags', value: 'data_enum_bit_flags' })
+  }
+
+  const showSomeipPlaceholder = signal.name === 'TIRE_PRESSURE'
+
+  const setSomeipMode = (signalName: string, mode: SomeipMode) => {
+    setSomeipModes((prev) => ({ ...prev, [signalName]: mode }))
   }
 
   return (
@@ -258,6 +267,52 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
             </tr>
           </tbody>
         </table>
+
+        {showSomeipPlaceholder && (
+          <>
+            <div className="aaos-section-title has-spacing">
+              SOME/IP tire pressure placeholder
+            </div>
+            <div className="aaos-someip-list">
+              {TIRE_PRESSURE_SOMEIP_SIGNALS.map((item) => {
+                const activeMode = someipModes[item.signal] || 'get'
+                const fieldId = item.fieldIds[activeMode]
+                return (
+                  <div className="aaos-someip-card" key={item.signal}>
+                    <div className="aaos-someip-path">{item.signal}</div>
+                    <div className="aaos-someip-meta">
+                      <div>{'->'} Service ID: {item.serviceId}</div>
+                      <div>{'->'} Instance ID: {item.instanceId}</div>
+                      <div>{'->'} Field ID ({activeMode.toUpperCase()}): {fieldId}</div>
+                    </div>
+                    <div className="aaos-someip-actions">
+                      <button
+                        type="button"
+                        className={cx(
+                          'aaos-segment-btn',
+                          activeMode === 'get' && 'is-active',
+                        )}
+                        onClick={() => setSomeipMode(item.signal, 'get')}
+                      >
+                        Get
+                      </button>
+                      <button
+                        type="button"
+                        className={cx(
+                          'aaos-segment-btn',
+                          activeMode === 'set' && 'is-active',
+                        )}
+                        onClick={() => setSomeipMode(item.signal, 'set')}
+                      >
+                        Set
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
 
         <div className="aaos-section-title has-spacing">
           Property ID Composition

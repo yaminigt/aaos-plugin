@@ -361,6 +361,60 @@ const CSS = `
   word-break: break-word;
 }
 
+.aaos-someip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.aaos-someip-card {
+  border: 1px solid var(--aaos-border);
+  border-radius: var(--aaos-radius);
+  background: #f8fafc;
+  padding: 12px;
+}
+.aaos-someip-path {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--aaos-fg);
+  margin-bottom: 8px;
+}
+.aaos-someip-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--aaos-muted);
+  margin-bottom: 10px;
+}
+.aaos-someip-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+.aaos-segment-btn {
+  appearance: none;
+  border: 1px solid var(--aaos-border-strong);
+  background: #ffffff;
+  color: var(--aaos-muted);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease,
+    border-color 120ms ease;
+}
+.aaos-segment-btn:hover {
+  color: var(--aaos-primary);
+  border-color: var(--aaos-primary);
+  background: var(--aaos-primary-soft);
+}
+.aaos-segment-btn.is-active {
+  color: #ffffff;
+  border-color: var(--aaos-primary);
+  background: var(--aaos-primary);
+}
+
 .aaos-copy-btn {
   appearance: none;
   background: transparent;
