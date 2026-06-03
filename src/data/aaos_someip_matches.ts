@@ -2,26 +2,29 @@
  * AAOS ↔ SOME/IP Signal Mapping
  *
  * Maps AAOS signal names to their corresponding SOME/IP service, instance, and field IDs.
- * Currently sparse: only signals with available SOME/IP configuration are included.
- *
- * Structure:
- *   TIRE_PRESSURE → { serviceId, instanceId, fieldIds: { get, set } }
+ * `modes` controls which GET/SET buttons are enabled — driven by the AAOS signal access level.
+ *   READ-only   → modes: ['get']
+ *   WRITE-only  → modes: ['set']
+ *   READ_WRITE  → modes: ['get', 'set']
  */
+
+export type SomeipMode = 'get' | 'set'
 
 export type SomeipMatch = {
   serviceId: string
   instanceId: string
-  fieldIds: {
-    get: string
-    set: string
+  fieldIds?: {
+    get?: string
+    set?: string
   }
+  modes: SomeipMode[]
 }
 
 /**
  * Mapping data: AAOS signal name → SOME/IP configuration
- * Format: Raw lookup object for quick access
  */
 const MAPPINGS: Record<string, SomeipMatch> = {
+  // READ-only → GET only
   TIRE_PRESSURE: {
     serviceId: '0x4100',
     instanceId: '0x1000',
@@ -29,6 +32,19 @@ const MAPPINGS: Record<string, SomeipMatch> = {
       get: '0x8410',
       set: '0x8411',
     },
+    modes: ['get'],
+  },
+  // READ-only → GET only
+  CURRENT_GEAR: {
+    serviceId: '0x2100',
+    instanceId: '0x8210',
+    modes: ['get'],
+  },
+  // READ-only → GET only
+  PERF_VEHICLE_SPEED: {
+    serviceId: '0x2100',
+    instanceId: '0x8211',
+    modes: ['get'],
   },
   // Add more AAOS signals here as SOME/IP configs become available
 }

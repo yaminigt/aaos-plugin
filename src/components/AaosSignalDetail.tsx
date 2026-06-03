@@ -273,26 +273,32 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
               <div className="aaos-someip-meta">
                 <div>{'->'} Service ID: {someipMatch.serviceId}</div>
                 <div>{'->'} Instance ID: {someipMatch.instanceId}</div>
-                <div>{'->'} Field ID ({someipMode.toUpperCase()}): {someipMatch.fieldIds[someipMode]}</div>
+                {someipMatch.fieldIds?.[someipMode] && (
+                  <div>{'->'} Field ID ({someipMode.toUpperCase()}): {someipMatch.fieldIds[someipMode]}</div>
+                )}
               </div>
               <div className="aaos-someip-actions">
                 <button
                   type="button"
+                  disabled={!someipMatch.modes.includes('get')}
                   className={cx(
                     'aaos-segment-btn',
-                    someipMode === 'get' && 'is-active',
+                    someipMode === 'get' && someipMatch.modes.includes('get') && 'is-active',
+                    !someipMatch.modes.includes('get') && 'is-disabled',
                   )}
-                  onClick={() => setSomeipMode('get')}
+                  onClick={() => someipMatch.modes.includes('get') && setSomeipMode('get')}
                 >
                   Get
                 </button>
                 <button
                   type="button"
+                  disabled={!someipMatch.modes.includes('set')}
                   className={cx(
                     'aaos-segment-btn',
-                    someipMode === 'set' && 'is-active',
+                    someipMode === 'set' && someipMatch.modes.includes('set') && 'is-active',
+                    !someipMatch.modes.includes('set') && 'is-disabled',
                   )}
-                  onClick={() => setSomeipMode('set')}
+                  onClick={() => someipMatch.modes.includes('set') && setSomeipMode('set')}
                 >
                   Set
                 </button>

@@ -414,6 +414,12 @@ const CSS = `
   border-color: var(--aaos-primary);
   background: var(--aaos-primary);
 }
+.aaos-segment-btn.is-disabled,
+.aaos-segment-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 .aaos-copy-btn {
   appearance: none;
