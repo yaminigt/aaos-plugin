@@ -6,8 +6,6 @@ import {
 } from '../data/aaos'
 import { getCovesaMatchesForAaos } from '../data/aaos_covesa_matches'
 import {
-  buildSomeipEnvelopeForAaos,
-  findAaosSignalForSomeip,
   getSomeipMatchForAaos,
 } from '../data/aaos_someip_matches'
 import { CheckIcon, CopyIcon, PlusIcon } from './icons'
@@ -119,33 +117,26 @@ type Status =
 const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [statusState, setStatus] = useState({ kind: 'idle' } as Status)
   const [someipModeState, setSomeipMode] = useState('get')
+  const [editedServiceId, setEditedServiceId] = useState('')
+  const [editedInstanceId, setEditedInstanceId] = useState('')
   const status = statusState as Status
   const someipMode = someipModeState as 'get' | 'set'
 
-  // Reset status when the selected signal changes.
+  const someipMatch = getSomeipMatchForAaos(signal.name)
+
+  // Reset status and editable fields when the selected signal changes.
   useEffect(() => {
     setStatus({ kind: 'idle' })
     setSomeipMode('get')
+    setEditedServiceId(someipMatch?.serviceId ?? '')
+    setEditedInstanceId(someipMatch?.instanceId ?? '')
   }, [signal.name])
 
   const propertyId = getAaosPropertyId(signal)
   const fullPath = getAaosFullPath(signal)
   const wishlistApiName = toWishlistApiName(signal)
   const covesaMatches = getCovesaMatchesForAaos(signal.name)
-  const someipMatch = getSomeipMatchForAaos(signal.name)
-  const someipOperation = someipMatch?.operations?.[someipMode]
-  const someipReverseLookup = someipOperation
-    ? findAaosSignalForSomeip(
-        someipMatch.serviceId,
-        someipMatch.instanceId,
-        someipOperation.id,
-      )
-    : null
-  const someipPreview = buildSomeipEnvelopeForAaos(
-    signal.name,
-    someipMode,
-    signal.dataType === 'FLOAT' ? 220.5 : null,
-  )
+  const someipOperation = someipMatch?.operations?.[someipMode as 'get' | 'set']
 
   const wishlistAvailable =
     typeof api?.createWishlistApi === 'function' && !!modelId
@@ -287,81 +278,73 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
             <div className="aaos-section-title has-spacing">
               SOME/IP Mapping
             </div>
-            <div className="aaos-someip-card">
-              <div className="aaos-someip-path">{signal.name}</div>
-              <div className="aaos-someip-meta">
-                <div>{'->'} Service ID: {someipMatch.serviceId}</div>
-                <div>{'->'} Instance ID: {someipMatch.instanceId}</div>
+            <table className="aaos-prop-table">
+              <tbody>
+                <tr>
+                  <td className="k">Service ID</td>
+                  <td className="v">
+                    <input
+                      className="aaos-edit-field"
+                      value={editedServiceId}
+                      onChange={(e: any) => setEditedServiceId(e.target.value)}
+                      spellCheck={false}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="k">Instance ID</td>
+                  <td className="v">
+                    <input
+                      className="aaos-edit-field"
+                      value={editedInstanceId}
+                      onChange={(e: any) => setEditedInstanceId(e.target.value)}
+                      spellCheck={false}
+                    />
+                  </td>
+                </tr>
                 {someipOperation && (
-                  <>
-                    <div>
-                      {'->'} {someipOperation.kind.toUpperCase()} ID ({someipMode.toUpperCase()}): {someipOperation.id}
-                    </div>
-                    {someipOperation.eventGroupId && (
-                      <div>{'->'} Event Group ID: {someipOperation.eventGroupId}</div>
-                    )}
-                    {someipOperation.transport && (
-                      <div>{'->'} Transport: {someipOperation.transport}</div>
-                    )}
-                    {someipOperation.port && (
-                      <div>{'->'} Port: {someipOperation.port}</div>
-                    )}
-                    {typeof someipOperation.updateCycleMs === 'number' && (
-                      <div>{'->'} Update Cycle: {someipOperation.updateCycleMs} ms</div>
-                    )}
-                  </>
+                  <tr>
+                    <td className="k">
+                      {someipOperation.kind.charAt(0).toUpperCase() +
+                        someipOperation.kind.slice(1)}{' '}
+                      ID
+                    </td>
+                    <td className="v">{someipOperation.id}</td>
+                  </tr>
                 )}
-                {someipMatch.notes && <div>{'->'} Note: {someipMatch.notes}</div>}
-              </div>
-              <div className="aaos-someip-actions">
-                <button
-                  type="button"
-                  disabled={!someipMatch.modes.includes('get')}
-                  className={cx(
-                    'aaos-segment-btn',
-                    someipMode === 'get' && someipMatch.modes.includes('get') && 'is-active',
-                    !someipMatch.modes.includes('get') && 'is-disabled',
-                  )}
-                  onClick={() => someipMatch.modes.includes('get') && setSomeipMode('get')}
-                >
-                  Get
-                </button>
-                <button
-                  type="button"
-                  disabled={!someipMatch.modes.includes('set')}
-                  className={cx(
-                    'aaos-segment-btn',
-                    someipMode === 'set' && someipMatch.modes.includes('set') && 'is-active',
-                    !someipMatch.modes.includes('set') && 'is-disabled',
-                  )}
-                  onClick={() => someipMatch.modes.includes('set') && setSomeipMode('set')}
-                >
-                  Set
-                </button>
-              </div>
-
-              {someipPreview && (
-                <>
-                  <div className="aaos-someip-subtitle">AAOS to SOME/IP envelope</div>
-                  <pre className="aaos-code-block">
-                    {JSON.stringify(someipPreview, null, 2)}
-                  </pre>
-                </>
-              )}
-
-              {someipReverseLookup && someipOperation && (
-                <>
-                  <div className="aaos-someip-subtitle">Reverse lookup</div>
-                  <div className="aaos-someip-meta no-margin">
-                    <div>
-                      {'->'} Incoming SOME/IP {someipOperation.kind} {someipOperation.id} on service {someipMatch.serviceId} / instance {someipMatch.instanceId}
-                    </div>
-                    <div>
-                      {'->'} Maps back to AAOS signal: {someipReverseLookup.aaosSignalName}
-                    </div>
-                  </div>
-                </>
-              )}
+                {someipOperation?.eventGroupId && (
+                  <tr>
+                    <td className="k">Event Group ID</td>
+                    <td className="v">{someipOperation.eventGroupId}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            <div className="aaos-someip-actions" style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                disabled={!someipMatch.modes.includes('get')}
+                className={cx(
+                  'aaos-segment-btn',
+                  someipMode === 'get' && someipMatch.modes.includes('get') && 'is-active',
+                  !someipMatch.modes.includes('get') && 'is-disabled',
+                )}
+                onClick={() => someipMatch.modes.includes('get') && setSomeipMode('get')}
+              >
+                Get
+              </button>
+              <button
+                type="button"
+                disabled={!someipMatch.modes.includes('set')}
+                className={cx(
+                  'aaos-segment-btn',
+                  someipMode === 'set' && someipMatch.modes.includes('set') && 'is-active',
+                  !someipMatch.modes.includes('set') && 'is-disabled',
+                )}
+                onClick={() => someipMatch.modes.includes('set') && setSomeipMode('set')}
+              >
+                Set
+              </button>
             </div>
           </>
         )}

@@ -466,6 +466,24 @@ const CSS = `
   background: rgba(22, 163, 74, 0.08);
 }
 
+.aaos-edit-field {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--aaos-border-strong);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--aaos-fg);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.aaos-edit-field:focus {
+  border-color: var(--aaos-primary);
+  box-shadow: 0 0 0 3px var(--aaos-primary-soft);
+}
+
 .aaos-actions {
   display: flex;
   gap: 8px;
