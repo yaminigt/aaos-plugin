@@ -114,13 +114,29 @@ type Status =
   | { kind: 'success'; message: string }
   | { kind: 'error'; message: string }
 
+type SomeipValueEventPayload = {
+  signalName?: string
+  value?: string | number | boolean | null
+  timestamp?: string
+}
+
+const SOMEIP_VALUE_EVENT = 'aaos:someip:value'
+
 const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [statusState, setStatus] = useState({ kind: 'idle' } as Status)
   const [someipModeState, setSomeipMode] = useState('get')
   const [editedServiceId, setEditedServiceId] = useState('')
   const [editedInstanceId, setEditedInstanceId] = useState('')
+  const [receivedSomeipValueState, setReceivedSomeipValue] = useState(undefined)
+  const [receivedSomeipAt, setReceivedSomeipAt] = useState('')
   const status = statusState as Status
   const someipMode = someipModeState as 'get' | 'set'
+  const receivedSomeipValue = receivedSomeipValueState as
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
 
   const someipMatch = getSomeipMatchForAaos(signal.name)
 
@@ -130,6 +146,30 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     setSomeipMode('get')
     setEditedServiceId(someipMatch?.serviceId ?? '')
     setEditedInstanceId(someipMatch?.instanceId ?? '')
+    setReceivedSomeipValue(undefined)
+    setReceivedSomeipAt('')
+  }, [signal.name])
+
+  // Placeholder hookup for bridge communication: dispatch a browser event like
+  // window.dispatchEvent(new CustomEvent('aaos:someip:value', { detail: { signalName: 'TIRE_PRESSURE', value: 221.4 } }))
+  useEffect(() => {
+    const onSomeipValue = (event: Event) => {
+      const customEvent = event as CustomEvent<SomeipValueEventPayload>
+      const detail = customEvent?.detail
+      if (!detail?.signalName || detail.signalName !== signal.name) return
+      setReceivedSomeipValue(
+        detail.value === undefined ? null : (detail.value as any),
+      )
+      setReceivedSomeipAt(detail.timestamp || new Date().toISOString())
+    }
+
+    window.addEventListener(SOMEIP_VALUE_EVENT, onSomeipValue as EventListener)
+    return () => {
+      window.removeEventListener(
+        SOMEIP_VALUE_EVENT,
+        onSomeipValue as EventListener,
+      )
+    }
   }, [signal.name])
 
   const propertyId = getAaosPropertyId(signal)
@@ -318,6 +358,27 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
                     <td className="v">{someipOperation.eventGroupId}</td>
                   </tr>
                 )}
+                <tr>
+                  <td className="k">Received Value</td>
+                  <td className="v">
+                    {receivedSomeipValue === undefined ? (
+                      <span className="aaos-value-placeholder">
+                        Waiting for communication value...
+                      </span>
+                    ) : (
+                      <div className="aaos-received-value-wrap">
+                        <span className="aaos-value-chip">
+                          {String(receivedSomeipValue)}
+                        </span>
+                        {receivedSomeipAt && (
+                          <span className="aaos-value-meta">
+                            Updated: {receivedSomeipAt}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
               </tbody>
             </table>
             <div className="aaos-someip-actions" style={{ marginTop: 10 }}>

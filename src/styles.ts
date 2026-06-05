@@ -484,6 +484,29 @@ const CSS = `
   box-shadow: 0 0 0 3px var(--aaos-primary-soft);
 }
 
+.aaos-value-placeholder {
+  color: var(--aaos-muted);
+  font-style: italic;
+}
+.aaos-received-value-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.aaos-value-chip {
+  display: inline-block;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--aaos-primary-soft);
+  color: var(--aaos-primary);
+  font-weight: 600;
+}
+.aaos-value-meta {
+  color: var(--aaos-muted);
+  font-size: 12px;
+}
+
 .aaos-actions {
   display: flex;
   gap: 8px;
