@@ -9,6 +9,7 @@ import {
   getSomeipMatchForAaos,
 } from '../data/aaos_someip_matches'
 import { CheckIcon, CopyIcon, PlusIcon } from './icons'
+import aaosBridge from '../services/aaosBridge'
 
 const React: any = (globalThis as any).React
 const { useEffect, useState } = React
@@ -158,6 +159,10 @@ type SomeipValueEventPayload = {
 const SOMEIP_REQUEST_EVENT = 'aaos:someip:request'
 const SOMEIP_VALUE_EVENT = 'aaos:someip:value'
 
+// Connect the WebSocket bridge once when the module first loads.
+// The bridge auto-reconnects on disconnect.
+aaosBridge.connectWebSocket()
+
 const getSomeipModesFromAccess = (
   access: string[],
 ): Array<'get' | 'set'> => {
@@ -280,9 +285,13 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     setIsRequestInFlight(true)
 
     try {
-      if (typeof api?.sendSomeipPacket === 'function') {
-        await api.sendSomeipPacket(requestPayload)
-      }
+      // Send GET request to the bridge backend (POST /v2/aaos/request).
+      // If the backend responds with an immediate value it is dispatched
+      // as 'aaos:someip:value' inside sendRequest; otherwise the value
+      // arrives via the WebSocket push channel.
+      // TODO (SOME/IP team): backend translates this payload to a SOME/IP frame
+      //   using payload.someip fields (serviceId, instanceId, operationId, etc.)
+      await aaosBridge.sendRequest(requestPayload)
     } catch (err: any) {
       setIsRequestInFlight(false)
       const message =
@@ -343,9 +352,11 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     setIsRequestInFlight(true)
 
     try {
-      if (typeof api?.sendSomeipPacket === 'function') {
-        await api.sendSomeipPacket(requestPayload)
-      }
+      // Send SET request to the bridge backend (POST /v2/aaos/request).
+      // payload.value carries the user-entered value to write.
+      // TODO (SOME/IP team): backend translates this payload to a SOME/IP SET
+      //   method call using payload.someip.operationId and payload.value.
+      await aaosBridge.sendRequest(requestPayload)
     } catch (err: any) {
       setIsRequestInFlight(false)
       const message =
