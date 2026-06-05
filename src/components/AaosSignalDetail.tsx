@@ -114,27 +114,47 @@ type Status =
   | { kind: 'success'; message: string }
   | { kind: 'error'; message: string }
 
-type SomeipValueEventPayload = {
+type SomeipRequestPayload = {
+  signalName: string
+  mode: 'get' | 'set'
+  someip: {
+    serviceId: string
+    instanceId: string
+    operationId?: string
+    eventGroupId?: string
+  }
+  requestedAt: string
+}
+
+type SomeipTirePressureValueEventPayload = {
   signalName?: string
-  value?: string | number | boolean | null
+  frontValue?: string | number | null
+  rearValue?: string | number | null
   timestamp?: string
 }
 
-const SOMEIP_VALUE_EVENT = 'aaos:someip:value'
+const SOMEIP_REQUEST_EVENT = 'aaos:someip:request'
+const SOMEIP_TIRE_PRESSURE_VALUE_EVENT = 'aaos:someip:tire-pressure:value'
 
 const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [statusState, setStatus] = useState({ kind: 'idle' } as Status)
   const [someipModeState, setSomeipMode] = useState('get')
   const [editedServiceId, setEditedServiceId] = useState('')
   const [editedInstanceId, setEditedInstanceId] = useState('')
-  const [receivedSomeipValueState, setReceivedSomeipValue] = useState(undefined)
+  const [receivedFrontValueState, setReceivedFrontValue] = useState(undefined)
+  const [receivedRearValueState, setReceivedRearValue] = useState(undefined)
   const [receivedSomeipAt, setReceivedSomeipAt] = useState('')
+  const [isRequestInFlight, setIsRequestInFlight] = useState(false)
   const status = statusState as Status
   const someipMode = someipModeState as 'get' | 'set'
-  const receivedSomeipValue = receivedSomeipValueState as
+  const receivedFrontValue = receivedFrontValueState as
     | string
     | number
-    | boolean
+    | null
+    | undefined
+  const receivedRearValue = receivedRearValueState as
+    | string
+    | number
     | null
     | undefined
 
@@ -146,27 +166,37 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     setSomeipMode('get')
     setEditedServiceId(someipMatch?.serviceId ?? '')
     setEditedInstanceId(someipMatch?.instanceId ?? '')
-    setReceivedSomeipValue(undefined)
+    setReceivedFrontValue(undefined)
+    setReceivedRearValue(undefined)
     setReceivedSomeipAt('')
+    setIsRequestInFlight(false)
   }, [signal.name])
 
   // Placeholder hookup for bridge communication: dispatch a browser event like
-  // window.dispatchEvent(new CustomEvent('aaos:someip:value', { detail: { signalName: 'TIRE_PRESSURE', value: 221.4 } }))
+  // window.dispatchEvent(new CustomEvent('aaos:someip:tire-pressure:value', { detail: { signalName: 'TIRE_PRESSURE', frontValue: 223.1, rearValue: 221.4 } }))
   useEffect(() => {
     const onSomeipValue = (event: Event) => {
-      const customEvent = event as CustomEvent<SomeipValueEventPayload>
+      const customEvent =
+        event as CustomEvent<SomeipTirePressureValueEventPayload>
       const detail = customEvent?.detail
       if (!detail?.signalName || detail.signalName !== signal.name) return
-      setReceivedSomeipValue(
-        detail.value === undefined ? null : (detail.value as any),
+      setReceivedFrontValue(
+        detail.frontValue === undefined ? null : (detail.frontValue as any),
+      )
+      setReceivedRearValue(
+        detail.rearValue === undefined ? null : (detail.rearValue as any),
       )
       setReceivedSomeipAt(detail.timestamp || new Date().toISOString())
+      setIsRequestInFlight(false)
     }
 
-    window.addEventListener(SOMEIP_VALUE_EVENT, onSomeipValue as EventListener)
+    window.addEventListener(
+      SOMEIP_TIRE_PRESSURE_VALUE_EVENT,
+      onSomeipValue as EventListener,
+    )
     return () => {
       window.removeEventListener(
-        SOMEIP_VALUE_EVENT,
+        SOMEIP_TIRE_PRESSURE_VALUE_EVENT,
         onSomeipValue as EventListener,
       )
     }
@@ -180,6 +210,44 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
 
   const wishlistAvailable =
     typeof api?.createWishlistApi === 'function' && !!modelId
+
+  const handleSomeipGetClick = async () => {
+    if (!someipMatch || !someipMatch.modes.includes('get')) return
+    const operation = someipMatch.operations?.get
+    const requestPayload: SomeipRequestPayload = {
+      signalName: signal.name,
+      mode: 'get',
+      someip: {
+        serviceId: editedServiceId || someipMatch.serviceId,
+        instanceId: editedInstanceId || someipMatch.instanceId,
+        operationId: operation?.id,
+        eventGroupId: operation?.eventGroupId,
+      },
+      requestedAt: new Date().toISOString(),
+    }
+
+    setSomeipMode('get')
+    setIsRequestInFlight(true)
+
+    try {
+      if (typeof api?.sendSomeipPacket === 'function') {
+        await api.sendSomeipPacket(requestPayload)
+      }
+    } catch (err: any) {
+      setIsRequestInFlight(false)
+      const message =
+        err?.message || 'Failed to send SOME/IP GET request package.'
+      setStatus({ kind: 'error', message })
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(SOMEIP_REQUEST_EVENT, {
+        detail: requestPayload,
+      }),
+    )
+  }
+
+  const isTirePressureSignal = signal.name === 'TIRE_PRESSURE'
 
   const handleAddWishlist = async () => {
     if (!wishlistAvailable) return
@@ -358,27 +426,61 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
                     <td className="v">{someipOperation.eventGroupId}</td>
                   </tr>
                 )}
-                <tr>
-                  <td className="k">Received Value</td>
-                  <td className="v">
-                    {receivedSomeipValue === undefined ? (
-                      <span className="aaos-value-placeholder">
-                        Waiting for communication value...
-                      </span>
-                    ) : (
-                      <div className="aaos-received-value-wrap">
-                        <span className="aaos-value-chip">
-                          {String(receivedSomeipValue)}
-                        </span>
-                        {receivedSomeipAt && (
-                          <span className="aaos-value-meta">
-                            Updated: {receivedSomeipAt}
+                {isTirePressureSignal ? (
+                  <>
+                    <tr>
+                      <td className="k">Tire Pressure Front Value</td>
+                      <td className="v">
+                        {receivedFrontValue === undefined ? (
+                          <span className="aaos-value-placeholder">
+                            {isRequestInFlight
+                              ? 'Waiting for front tire value from image...'
+                              : 'Press Get to request front tire value'}
+                          </span>
+                        ) : (
+                          <span className="aaos-value-chip">
+                            {String(receivedFrontValue)}
                           </span>
                         )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="k">Tire Pressure Rear Value</td>
+                      <td className="v">
+                        {receivedRearValue === undefined ? (
+                          <span className="aaos-value-placeholder">
+                            {isRequestInFlight
+                              ? 'Waiting for rear tire value from image...'
+                              : 'Press Get to request rear tire value'}
+                          </span>
+                        ) : (
+                          <span className="aaos-value-chip">
+                            {String(receivedRearValue)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="k">Last Response Time</td>
+                      <td className="v">
+                        {receivedSomeipAt ? (
+                          <span className="aaos-value-meta">{receivedSomeipAt}</span>
+                        ) : (
+                          <span className="aaos-value-placeholder">No response yet</span>
+                        )}
+                      </td>
+                    </tr>
+                  </>
+                ) : (
+                  <tr>
+                    <td className="k">Received Value</td>
+                    <td className="v">
+                      <span className="aaos-value-placeholder">
+                        Signal-specific display is available for TIRE_PRESSURE.
+                      </span>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
             <div className="aaos-someip-actions" style={{ marginTop: 10 }}>
@@ -390,9 +492,9 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
                   someipMode === 'get' && someipMatch.modes.includes('get') && 'is-active',
                   !someipMatch.modes.includes('get') && 'is-disabled',
                 )}
-                onClick={() => someipMatch.modes.includes('get') && setSomeipMode('get')}
+                onClick={handleSomeipGetClick}
               >
-                Get
+                {isRequestInFlight ? 'Getting...' : 'Get'}
               </button>
               <button
                 type="button"
