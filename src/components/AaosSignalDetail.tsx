@@ -122,7 +122,29 @@ type SomeipRequestPayload = {
     serviceId: string
     instanceId: string
     operationId?: string
+    operationKind?: string
     eventGroupId?: string
+    transport?: string
+    port?: string
+    updateCycleMs?: number
+    operations?: {
+      get?: {
+        id: string
+        kind: string
+        eventGroupId?: string
+        transport?: string
+        port?: string
+        updateCycleMs?: number
+      }
+      set?: {
+        id: string
+        kind: string
+        eventGroupId?: string
+        transport?: string
+        port?: string
+        updateCycleMs?: number
+      }
+    }
   }
   requestedAt: string
 }
@@ -223,7 +245,33 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
         serviceId: editedServiceId || someipMatch?.serviceId || '',
         instanceId: editedInstanceId || someipMatch?.instanceId || '',
         operationId: operation?.id,
+        operationKind: operation?.kind,
         eventGroupId: operation?.eventGroupId,
+        transport: operation?.transport,
+        port: operation?.port,
+        updateCycleMs: operation?.updateCycleMs,
+        operations: {
+          get: someipMatch?.operations?.get
+            ? {
+                id: someipMatch.operations.get.id,
+                kind: someipMatch.operations.get.kind,
+                eventGroupId: someipMatch.operations.get.eventGroupId,
+                transport: someipMatch.operations.get.transport,
+                port: someipMatch.operations.get.port,
+                updateCycleMs: someipMatch.operations.get.updateCycleMs,
+              }
+            : undefined,
+          set: someipMatch?.operations?.set
+            ? {
+                id: someipMatch.operations.set.id,
+                kind: someipMatch.operations.set.kind,
+                eventGroupId: someipMatch.operations.set.eventGroupId,
+                transport: someipMatch.operations.set.transport,
+                port: someipMatch.operations.set.port,
+                updateCycleMs: someipMatch.operations.set.updateCycleMs,
+              }
+            : undefined,
+        },
       },
       requestedAt: new Date().toISOString(),
     }
@@ -260,18 +308,46 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
         serviceId: editedServiceId || someipMatch?.serviceId || '',
         instanceId: editedInstanceId || someipMatch?.instanceId || '',
         operationId: operation?.id,
+        operationKind: operation?.kind,
         eventGroupId: operation?.eventGroupId,
+        transport: operation?.transport,
+        port: operation?.port,
+        updateCycleMs: operation?.updateCycleMs,
+        operations: {
+          get: someipMatch?.operations?.get
+            ? {
+                id: someipMatch.operations.get.id,
+                kind: someipMatch.operations.get.kind,
+                eventGroupId: someipMatch.operations.get.eventGroupId,
+                transport: someipMatch.operations.get.transport,
+                port: someipMatch.operations.get.port,
+                updateCycleMs: someipMatch.operations.get.updateCycleMs,
+              }
+            : undefined,
+          set: someipMatch?.operations?.set
+            ? {
+                id: someipMatch.operations.set.id,
+                kind: someipMatch.operations.set.kind,
+                eventGroupId: someipMatch.operations.set.eventGroupId,
+                transport: someipMatch.operations.set.transport,
+                port: someipMatch.operations.set.port,
+                updateCycleMs: someipMatch.operations.set.updateCycleMs,
+              }
+            : undefined,
+        },
       },
       requestedAt: new Date().toISOString(),
     }
 
     setSomeipMode('set')
+    setIsRequestInFlight(true)
 
     try {
       if (typeof api?.sendSomeipPacket === 'function') {
         await api.sendSomeipPacket(requestPayload)
       }
     } catch (err: any) {
+      setIsRequestInFlight(false)
       const message =
         err?.message || 'Failed to send SOME/IP SET request package.'
       setStatus({ kind: 'error', message })
@@ -445,14 +521,6 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
                     spellCheck={false}
                   />
                 </td>
-              </tr>
-              <tr>
-                <td className="k">Operation ID (GET)</td>
-                <td className="v">{someipMatch?.operations?.get?.id || '—'}</td>
-              </tr>
-              <tr>
-                <td className="k">Operation ID (SET)</td>
-                <td className="v">{someipMatch?.operations?.set?.id || '—'}</td>
               </tr>
               <tr>
                 <td className="k">Value</td>
