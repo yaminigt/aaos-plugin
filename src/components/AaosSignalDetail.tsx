@@ -117,6 +117,7 @@ type Status =
 type SomeipRequestPayload = {
   signalName: string
   mode: 'get' | 'set'
+  value?: string | number | boolean | null
   someip: {
     serviceId: string
     instanceId: string
@@ -126,39 +127,47 @@ type SomeipRequestPayload = {
   requestedAt: string
 }
 
-type SomeipTirePressureValueEventPayload = {
+type SomeipValueEventPayload = {
   signalName?: string
-  frontValue?: string | number | null
-  rearValue?: string | number | null
+  value?: string | number | boolean | null
   timestamp?: string
 }
 
 const SOMEIP_REQUEST_EVENT = 'aaos:someip:request'
-const SOMEIP_TIRE_PRESSURE_VALUE_EVENT = 'aaos:someip:tire-pressure:value'
+const SOMEIP_VALUE_EVENT = 'aaos:someip:value'
+
+const getSomeipModesFromAccess = (
+  access: string[],
+): Array<'get' | 'set'> => {
+  const hasRead = access.includes('READ') || access.includes('READ_WRITE')
+  const hasWrite = access.includes('WRITE') || access.includes('READ_WRITE')
+  const modes: Array<'get' | 'set'> = []
+  if (hasRead) modes.push('get')
+  if (hasWrite) modes.push('set')
+  return modes
+}
 
 const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [statusState, setStatus] = useState({ kind: 'idle' } as Status)
   const [someipModeState, setSomeipMode] = useState('get')
   const [editedServiceId, setEditedServiceId] = useState('')
   const [editedInstanceId, setEditedInstanceId] = useState('')
-  const [receivedFrontValueState, setReceivedFrontValue] = useState(undefined)
-  const [receivedRearValueState, setReceivedRearValue] = useState(undefined)
+  const [receivedValueState, setReceivedValue] = useState(undefined)
+  const [setValueState, setSetValue] = useState('')
   const [receivedSomeipAt, setReceivedSomeipAt] = useState('')
   const [isRequestInFlight, setIsRequestInFlight] = useState(false)
   const status = statusState as Status
   const someipMode = someipModeState as 'get' | 'set'
-  const receivedFrontValue = receivedFrontValueState as
+  const receivedValue = receivedValueState as
     | string
     | number
-    | null
-    | undefined
-  const receivedRearValue = receivedRearValueState as
-    | string
-    | number
+    | boolean
     | null
     | undefined
 
   const someipMatch = getSomeipMatchForAaos(signal.name)
+  const availableModes = getSomeipModesFromAccess(signal.access)
+  const someipOperation = someipMatch?.operations?.[someipMode]
 
   // Reset status and editable fields when the selected signal changes.
   useEffect(() => {
@@ -166,39 +175,33 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     setSomeipMode('get')
     setEditedServiceId(someipMatch?.serviceId ?? '')
     setEditedInstanceId(someipMatch?.instanceId ?? '')
-    setReceivedFrontValue(undefined)
-    setReceivedRearValue(undefined)
+    setReceivedValue(undefined)
+    setSetValue('')
     setReceivedSomeipAt('')
+    const nextMode = availableModes.includes('get')
+      ? 'get'
+      : availableModes.includes('set')
+        ? 'set'
+        : 'get'
+    setSomeipMode(nextMode)
     setIsRequestInFlight(false)
   }, [signal.name])
 
   // Placeholder hookup for bridge communication: dispatch a browser event like
-  // window.dispatchEvent(new CustomEvent('aaos:someip:tire-pressure:value', { detail: { signalName: 'TIRE_PRESSURE', frontValue: 223.1, rearValue: 221.4 } }))
+  // window.dispatchEvent(new CustomEvent('aaos:someip:value', { detail: { signalName: 'TIRE_PRESSURE', value: 221.4 } }))
   useEffect(() => {
     const onSomeipValue = (event: Event) => {
-      const customEvent =
-        event as CustomEvent<SomeipTirePressureValueEventPayload>
+      const customEvent = event as CustomEvent<SomeipValueEventPayload>
       const detail = customEvent?.detail
       if (!detail?.signalName || detail.signalName !== signal.name) return
-      setReceivedFrontValue(
-        detail.frontValue === undefined ? null : (detail.frontValue as any),
-      )
-      setReceivedRearValue(
-        detail.rearValue === undefined ? null : (detail.rearValue as any),
-      )
+      setReceivedValue(detail.value === undefined ? null : (detail.value as any))
       setReceivedSomeipAt(detail.timestamp || new Date().toISOString())
       setIsRequestInFlight(false)
     }
 
-    window.addEventListener(
-      SOMEIP_TIRE_PRESSURE_VALUE_EVENT,
-      onSomeipValue as EventListener,
-    )
+    window.addEventListener(SOMEIP_VALUE_EVENT, onSomeipValue as EventListener)
     return () => {
-      window.removeEventListener(
-        SOMEIP_TIRE_PRESSURE_VALUE_EVENT,
-        onSomeipValue as EventListener,
-      )
+      window.removeEventListener(SOMEIP_VALUE_EVENT, onSomeipValue as EventListener)
     }
   }, [signal.name])
 
@@ -206,20 +209,19 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const fullPath = getAaosFullPath(signal)
   const wishlistApiName = toWishlistApiName(signal)
   const covesaMatches = getCovesaMatchesForAaos(signal.name)
-  const someipOperation = someipMatch?.operations?.[someipMode as 'get' | 'set']
 
   const wishlistAvailable =
     typeof api?.createWishlistApi === 'function' && !!modelId
 
   const handleSomeipGetClick = async () => {
-    if (!someipMatch || !someipMatch.modes.includes('get')) return
-    const operation = someipMatch.operations?.get
+    if (!availableModes.includes('get')) return
+    const operation = someipMatch?.operations?.get
     const requestPayload: SomeipRequestPayload = {
       signalName: signal.name,
       mode: 'get',
       someip: {
-        serviceId: editedServiceId || someipMatch.serviceId,
-        instanceId: editedInstanceId || someipMatch.instanceId,
+        serviceId: editedServiceId || someipMatch?.serviceId || '',
+        instanceId: editedInstanceId || someipMatch?.instanceId || '',
         operationId: operation?.id,
         eventGroupId: operation?.eventGroupId,
       },
@@ -247,7 +249,40 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     )
   }
 
-  const isTirePressureSignal = signal.name === 'TIRE_PRESSURE'
+  const handleSomeipSetClick = async () => {
+    if (!availableModes.includes('set')) return
+    const operation = someipMatch?.operations?.set
+    const requestPayload: SomeipRequestPayload = {
+      signalName: signal.name,
+      mode: 'set',
+      value: setValueState,
+      someip: {
+        serviceId: editedServiceId || someipMatch?.serviceId || '',
+        instanceId: editedInstanceId || someipMatch?.instanceId || '',
+        operationId: operation?.id,
+        eventGroupId: operation?.eventGroupId,
+      },
+      requestedAt: new Date().toISOString(),
+    }
+
+    setSomeipMode('set')
+
+    try {
+      if (typeof api?.sendSomeipPacket === 'function') {
+        await api.sendSomeipPacket(requestPayload)
+      }
+    } catch (err: any) {
+      const message =
+        err?.message || 'Failed to send SOME/IP SET request package.'
+      setStatus({ kind: 'error', message })
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(SOMEIP_REQUEST_EVENT, {
+        detail: requestPayload,
+      }),
+    )
+  }
 
   const handleAddWishlist = async () => {
     if (!wishlistAvailable) return
@@ -381,136 +416,109 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
           </tbody>
         </table>
 
-        {someipMatch && (
-          <>
-            <div className="aaos-section-title has-spacing">
-              SOME/IP Mapping
-            </div>
-            <table className="aaos-prop-table">
-              <tbody>
-                <tr>
-                  <td className="k">Service ID</td>
-                  <td className="v">
-                    <input
-                      className="aaos-edit-field"
-                      value={editedServiceId}
-                      onChange={(e: any) => setEditedServiceId(e.target.value)}
-                      spellCheck={false}
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <td className="k">Instance ID</td>
-                  <td className="v">
-                    <input
-                      className="aaos-edit-field"
-                      value={editedInstanceId}
-                      onChange={(e: any) => setEditedInstanceId(e.target.value)}
-                      spellCheck={false}
-                    />
-                  </td>
-                </tr>
-                {someipOperation && (
-                  <tr>
-                    <td className="k">
-                      {someipOperation.kind.charAt(0).toUpperCase() +
-                        someipOperation.kind.slice(1)}{' '}
-                      ID
-                    </td>
-                    <td className="v">{someipOperation.id}</td>
-                  </tr>
-                )}
-                {someipOperation?.eventGroupId && (
-                  <tr>
-                    <td className="k">Event Group ID</td>
-                    <td className="v">{someipOperation.eventGroupId}</td>
-                  </tr>
-                )}
-                {isTirePressureSignal ? (
-                  <>
-                    <tr>
-                      <td className="k">Tire Pressure Front Value</td>
-                      <td className="v">
-                        {receivedFrontValue === undefined ? (
-                          <span className="aaos-value-placeholder">
-                            {isRequestInFlight
-                              ? 'Waiting for front tire value from image...'
-                              : 'Press Get to request front tire value'}
-                          </span>
-                        ) : (
-                          <span className="aaos-value-chip">
-                            {String(receivedFrontValue)}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="k">Tire Pressure Rear Value</td>
-                      <td className="v">
-                        {receivedRearValue === undefined ? (
-                          <span className="aaos-value-placeholder">
-                            {isRequestInFlight
-                              ? 'Waiting for rear tire value from image...'
-                              : 'Press Get to request rear tire value'}
-                          </span>
-                        ) : (
-                          <span className="aaos-value-chip">
-                            {String(receivedRearValue)}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="k">Last Response Time</td>
-                      <td className="v">
-                        {receivedSomeipAt ? (
-                          <span className="aaos-value-meta">{receivedSomeipAt}</span>
-                        ) : (
-                          <span className="aaos-value-placeholder">No response yet</span>
-                        )}
-                      </td>
-                    </tr>
-                  </>
-                ) : (
-                  <tr>
-                    <td className="k">Received Value</td>
-                    <td className="v">
-                      <span className="aaos-value-placeholder">
-                        Signal-specific display is available for TIRE_PRESSURE.
-                      </span>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            <div className="aaos-someip-actions" style={{ marginTop: 10 }}>
-              <button
-                type="button"
-                disabled={!someipMatch.modes.includes('get')}
-                className={cx(
-                  'aaos-segment-btn',
-                  someipMode === 'get' && someipMatch.modes.includes('get') && 'is-active',
-                  !someipMatch.modes.includes('get') && 'is-disabled',
-                )}
-                onClick={handleSomeipGetClick}
-              >
-                {isRequestInFlight ? 'Getting...' : 'Get'}
-              </button>
-              <button
-                type="button"
-                disabled={!someipMatch.modes.includes('set')}
-                className={cx(
-                  'aaos-segment-btn',
-                  someipMode === 'set' && someipMatch.modes.includes('set') && 'is-active',
-                  !someipMatch.modes.includes('set') && 'is-disabled',
-                )}
-                onClick={() => someipMatch.modes.includes('set') && setSomeipMode('set')}
-              >
-                Set
-              </button>
-            </div>
-          </>
-        )}
+        <>
+          <div className="aaos-section-title has-spacing">
+            SOME/IP Mapping
+          </div>
+          <table className="aaos-prop-table">
+            <tbody>
+              <tr>
+                <td className="k">Service ID</td>
+                <td className="v">
+                  <input
+                    className="aaos-edit-field"
+                    value={editedServiceId}
+                    onChange={(e: any) => setEditedServiceId(e.target.value)}
+                    placeholder="Enter Service ID"
+                    spellCheck={false}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="k">Instance ID</td>
+                <td className="v">
+                  <input
+                    className="aaos-edit-field"
+                    value={editedInstanceId}
+                    onChange={(e: any) => setEditedInstanceId(e.target.value)}
+                    placeholder="Enter Instance ID"
+                    spellCheck={false}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="k">Operation ID (GET)</td>
+                <td className="v">{someipMatch?.operations?.get?.id || '—'}</td>
+              </tr>
+              <tr>
+                <td className="k">Operation ID (SET)</td>
+                <td className="v">{someipMatch?.operations?.set?.id || '—'}</td>
+              </tr>
+              <tr>
+                <td className="k">Value</td>
+                <td className="v">
+                  {receivedValue === undefined ? (
+                    <span className="aaos-value-placeholder">
+                      {isRequestInFlight
+                        ? 'Waiting for value from image...'
+                        : 'Press Get to request value'}
+                    </span>
+                  ) : (
+                    <span className="aaos-value-chip">{String(receivedValue)}</span>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td className="k">Set Value</td>
+                <td className="v">
+                  <input
+                    className="aaos-edit-field"
+                    value={setValueState}
+                    onChange={(e: any) => setSetValue(e.target.value)}
+                    placeholder="Enter value to set"
+                    spellCheck={false}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="k">Last Response Time</td>
+                <td className="v">
+                  {receivedSomeipAt ? (
+                    <span className="aaos-value-meta">{receivedSomeipAt}</span>
+                  ) : (
+                    <span className="aaos-value-placeholder">No response yet</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="aaos-someip-actions" style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              disabled={!availableModes.includes('get')}
+              className={cx(
+                'aaos-segment-btn',
+                someipMode === 'get' && availableModes.includes('get') && 'is-active',
+                !availableModes.includes('get') && 'is-disabled',
+              )}
+              onClick={handleSomeipGetClick}
+            >
+              {isRequestInFlight ? 'Getting...' : 'Get'}
+            </button>
+            <button
+              type="button"
+              disabled={!availableModes.includes('set')}
+              className={cx(
+                'aaos-segment-btn',
+                someipMode === 'set' && availableModes.includes('set') && 'is-active',
+                !availableModes.includes('set') && 'is-disabled',
+              )}
+              onClick={handleSomeipSetClick}
+            >
+              Set
+            </button>
+          </div>
+        </>
 
         <div className="aaos-section-title has-spacing">
           Property ID Composition
