@@ -11,10 +11,11 @@
  *         └─ WS    → ws://localhost:3201       (live push from bridge server)
  *
  * TODO (future integration by SOME/IP team):
- *   The backend at localhost:3201 is responsible for translating the JSON
- *   request payloads arriving at POST /v2/aaos/request into actual SOME/IP
- *   messages and forwarding them to the Cuttlefish AAOS virtual device.
- *   Responses from the device arrive back via the WebSocket channel.
+ *   The backend at localhost:3201 should forward request payloads to the
+ *   Rust bridge service at http://localhost:8080/config, which is expected
+ *   to translate JSON requests into SOME/IP frames and forward them to the
+ *   Cuttlefish AAOS virtual device. Responses from the device arrive back
+ *   via the WebSocket channel.
  */
 
 // ---------------------------------------------------------------------------
@@ -27,8 +28,9 @@ const WS_URL = 'ws://localhost:3201'
 /** Reconnect delay steps (ms): 1s → 2s → 4s → 8s → 16s → cap at 30s */
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000]
 
-/** Browser custom event name: UI listens to this to update signal values. */
-export const AAOS_SIGNAL_UPDATE_EVENT = 'aaos:someip:value'
+/** Browser custom event names used by the plugin UI. */
+export const AAOS_SIGNAL_UPDATE_EVENT = 'aaos:signal:update'
+export const LEGACY_AAOS_SIGNAL_UPDATE_EVENT = 'aaos:someip:value'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,8 +92,10 @@ function logWs(message: string) {
 }
 
 function dispatchSignalUpdate(detail: AaosBridgeResponse) {
+  window.dispatchEvent(new CustomEvent(AAOS_SIGNAL_UPDATE_EVENT, { detail }))
+  // Keep the legacy event for backward compatibility with older plugin code.
   window.dispatchEvent(
-    new CustomEvent(AAOS_SIGNAL_UPDATE_EVENT, { detail }),
+    new CustomEvent(LEGACY_AAOS_SIGNAL_UPDATE_EVENT, { detail }),
   )
 }
 
@@ -192,9 +196,11 @@ export function disconnectWebSocket() {
  *
  * Endpoint: POST http://localhost:3201/v2/aaos/request
  *
- * The backend is expected to translate this into a SOME/IP message and
- * forward it to the Cuttlefish AAOS image. The response will arrive either
- * as a REST response body or — for subscribed events — via the WebSocket.
+ * The backend is expected to forward this to the Rust bridge service at
+ * http://localhost:8080/config, which then translates it into a SOME/IP
+ * message and forwards it to the Cuttlefish AAOS image. The response will
+ * arrive either as a REST response body or — for subscribed events — via
+ * the WebSocket.
  *
  * TODO (SOME/IP team): Wire the backend's POST handler to the vsomeip client
  *   so that the payload.someip fields are used to route the SOME/IP frame.
@@ -240,10 +246,12 @@ export async function sendRequest(
  *   received from the SOME/IP layer per signal name and return it here.
  */
 export async function getLatestResponse(
-  signalName: string,
+  signalName?: string,
 ): Promise<AaosBridgeResponse | null> {
   try {
-    const url = `${BASE_URL}/v2/aaos/latest?signal=${encodeURIComponent(signalName)}`
+    const url = signalName
+      ? `${BASE_URL}/v2/aaos/latest?signal=${encodeURIComponent(signalName)}`
+      : `${BASE_URL}/v2/aaos/latest`
     const res = await fetch(url)
 
     if (!res.ok) {

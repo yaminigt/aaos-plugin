@@ -9,7 +9,10 @@ import {
   getSomeipMatchForAaos,
 } from '../data/aaos_someip_matches'
 import { CheckIcon, CopyIcon, PlusIcon } from './icons'
-import aaosBridge from '../services/aaosBridge'
+import aaosBridge, {
+  AAOS_SIGNAL_UPDATE_EVENT,
+  LEGACY_AAOS_SIGNAL_UPDATE_EVENT,
+} from '../services/aaosBridge'
 
 const React: any = (globalThis as any).React
 const { useEffect, useState } = React
@@ -157,7 +160,6 @@ type SomeipValueEventPayload = {
 }
 
 const SOMEIP_REQUEST_EVENT = 'aaos:someip:request'
-const SOMEIP_VALUE_EVENT = 'aaos:someip:value'
 
 // Connect the WebSocket bridge once when the module first loads.
 // The bridge auto-reconnects on disconnect.
@@ -215,7 +217,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   }, [signal.name])
 
   // Placeholder hookup for bridge communication: dispatch a browser event like
-  // window.dispatchEvent(new CustomEvent('aaos:someip:value', { detail: { signalName: 'TIRE_PRESSURE', value: 221.4 } }))
+  // window.dispatchEvent(new CustomEvent('aaos:signal:update', { detail: { signalName: 'TIRE_PRESSURE', value: 221.4 } }))
   useEffect(() => {
     const onSomeipValue = (event: Event) => {
       const customEvent = event as CustomEvent<SomeipValueEventPayload>
@@ -226,9 +228,23 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
       setIsRequestInFlight(false)
     }
 
-    window.addEventListener(SOMEIP_VALUE_EVENT, onSomeipValue as EventListener)
+    window.addEventListener(
+      AAOS_SIGNAL_UPDATE_EVENT,
+      onSomeipValue as EventListener,
+    )
+    window.addEventListener(
+      LEGACY_AAOS_SIGNAL_UPDATE_EVENT,
+      onSomeipValue as EventListener,
+    )
     return () => {
-      window.removeEventListener(SOMEIP_VALUE_EVENT, onSomeipValue as EventListener)
+      window.removeEventListener(
+        AAOS_SIGNAL_UPDATE_EVENT,
+        onSomeipValue as EventListener,
+      )
+      window.removeEventListener(
+        LEGACY_AAOS_SIGNAL_UPDATE_EVENT,
+        onSomeipValue as EventListener,
+      )
     }
   }, [signal.name])
 
@@ -287,7 +303,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     try {
       // Send GET request to the bridge backend (POST /v2/aaos/request).
       // If the backend responds with an immediate value it is dispatched
-      // as 'aaos:someip:value' inside sendRequest; otherwise the value
+      // as 'aaos:signal:update' inside sendRequest; otherwise the value
       // arrives via the WebSocket push channel.
       // TODO (SOME/IP team): backend translates this payload to a SOME/IP frame
       //   using payload.someip fields (serviceId, instanceId, operationId, etc.)
