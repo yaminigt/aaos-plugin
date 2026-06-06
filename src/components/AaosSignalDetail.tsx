@@ -181,21 +181,17 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [someipModeState, setSomeipMode] = useState('get')
   const [editedServiceId, setEditedServiceId] = useState('')
   const [editedInstanceId, setEditedInstanceId] = useState('')
-  const [receivedValueState, setReceivedValue] = useState(undefined)
-  const [setValueState, setSetValue] = useState('')
+  const [valueState, setValue] = useState('')
   const [receivedSomeipAt, setReceivedSomeipAt] = useState('')
   const [isRequestInFlight, setIsRequestInFlight] = useState(false)
   const status = statusState as Status
   const someipMode = someipModeState as 'get' | 'set'
-  const receivedValue = receivedValueState as
-    | string
-    | number
-    | boolean
-    | null
-    | undefined
 
   const someipMatch = getSomeipMatchForAaos(signal.name)
   const availableModes = getSomeipModesFromAccess(signal.access)
+  const canGet = availableModes.includes('get')
+  const canSet = availableModes.includes('set')
+  const isValueEditable = canSet
   const someipOperation = someipMatch?.operations?.[someipMode]
 
   // Reset status and editable fields when the selected signal changes.
@@ -204,8 +200,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     setSomeipMode('get')
     setEditedServiceId(someipMatch?.serviceId ?? '')
     setEditedInstanceId(someipMatch?.instanceId ?? '')
-    setReceivedValue(undefined)
-    setSetValue('')
+    setValue('')
     setReceivedSomeipAt('')
     const nextMode = availableModes.includes('get')
       ? 'get'
@@ -223,7 +218,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
       const customEvent = event as CustomEvent<SomeipValueEventPayload>
       const detail = customEvent?.detail
       if (!detail?.signalName || detail.signalName !== signal.name) return
-      setReceivedValue(detail.value === undefined ? null : (detail.value as any))
+      setValue(detail.value === undefined ? '' : String(detail.value))
       setReceivedSomeipAt(detail.timestamp || new Date().toISOString())
       setIsRequestInFlight(false)
     }
@@ -257,7 +252,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     typeof api?.createWishlistApi === 'function' && !!modelId
 
   const handleSomeipGetClick = async () => {
-    if (!availableModes.includes('get')) return
+    if (!canGet) return
     const operation = someipMatch?.operations?.get
     const requestPayload: SomeipRequestPayload = {
       signalName: signal.name,
@@ -328,7 +323,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     const requestPayload: SomeipRequestPayload = {
       signalName: signal.name,
       mode: 'set',
-      value: setValueState,
+      value: valueState,
       someip: {
         serviceId: editedServiceId || someipMatch?.serviceId || '',
         instanceId: editedInstanceId || someipMatch?.instanceId || '',
@@ -552,25 +547,18 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
               <tr>
                 <td className="k">Value</td>
                 <td className="v">
-                  {receivedValue === undefined ? (
-                    <span className="aaos-value-placeholder">
-                      {isRequestInFlight
-                        ? 'Waiting for value from image...'
-                        : 'Press Get to request value'}
-                    </span>
-                  ) : (
-                    <span className="aaos-value-chip">{String(receivedValue)}</span>
-                  )}
-                </td>
-              </tr>
-              <tr>
-                <td className="k">Set Value</td>
-                <td className="v">
                   <input
                     className="aaos-edit-field"
-                    value={setValueState}
-                    onChange={(e: any) => setSetValue(e.target.value)}
-                    placeholder="Enter value to set"
+                    value={valueState}
+                    onChange={(e: any) => setValue(e.target.value)}
+                    placeholder={
+                      isRequestInFlight
+                        ? 'Waiting for value from image...'
+                        : canGet
+                          ? 'Press Get to request value'
+                          : 'Enter value to set'
+                    }
+                    readOnly={!isValueEditable}
                     spellCheck={false}
                   />
                 </td>
@@ -590,11 +578,11 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
           <div className="aaos-someip-actions" style={{ marginTop: 10 }}>
             <button
               type="button"
-              disabled={!availableModes.includes('get')}
+              disabled={!canGet}
               className={cx(
                 'aaos-segment-btn',
-                someipMode === 'get' && availableModes.includes('get') && 'is-active',
-                !availableModes.includes('get') && 'is-disabled',
+                someipMode === 'get' && canGet && 'is-active',
+                !canGet && 'is-disabled',
               )}
               onClick={handleSomeipGetClick}
             >
@@ -602,11 +590,11 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
             </button>
             <button
               type="button"
-              disabled={!availableModes.includes('set')}
+              disabled={!canSet}
               className={cx(
                 'aaos-segment-btn',
-                someipMode === 'set' && availableModes.includes('set') && 'is-active',
-                !availableModes.includes('set') && 'is-disabled',
+                someipMode === 'set' && canSet && 'is-active',
+                !canSet && 'is-disabled',
               )}
               onClick={handleSomeipSetClick}
             >
