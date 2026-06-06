@@ -181,6 +181,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
   const [someipModeState, setSomeipMode] = useState('get')
   const [editedServiceId, setEditedServiceId] = useState('')
   const [editedInstanceId, setEditedInstanceId] = useState('')
+  const [editedEventId, setEditedEventId] = useState('')
   const [valueState, setValue] = useState('')
   const [receivedSomeipAt, setReceivedSomeipAt] = useState('')
   const [isRequestInFlight, setIsRequestInFlight] = useState(false)
@@ -200,6 +201,9 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
     setSomeipMode('get')
     setEditedServiceId(someipMatch?.serviceId ?? '')
     setEditedInstanceId(someipMatch?.instanceId ?? '')
+    setEditedEventId(
+      someipMatch?.operations?.get?.id || someipMatch?.operations?.set?.id || '',
+    )
     setValue('')
     setReceivedSomeipAt('')
     const nextMode = availableModes.includes('get')
@@ -260,7 +264,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
       someip: {
         serviceId: editedServiceId || someipMatch?.serviceId || '',
         instanceId: editedInstanceId || someipMatch?.instanceId || '',
-        operationId: operation?.id,
+        operationId: editedEventId || operation?.id,
         operationKind: operation?.kind,
         eventGroupId: operation?.eventGroupId,
         transport: operation?.transport,
@@ -327,7 +331,7 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
       someip: {
         serviceId: editedServiceId || someipMatch?.serviceId || '',
         instanceId: editedInstanceId || someipMatch?.instanceId || '',
-        operationId: operation?.id,
+        operationId: editedEventId || operation?.id,
         operationKind: operation?.kind,
         eventGroupId: operation?.eventGroupId,
         transport: operation?.transport,
@@ -540,6 +544,18 @@ const AaosSignalDetail = ({ signal, api, modelId }: Props) => {
                     value={editedInstanceId}
                     onChange={(e: any) => setEditedInstanceId(e.target.value)}
                     placeholder="Enter Instance ID"
+                    spellCheck={false}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="k">Event ID</td>
+                <td className="v">
+                  <input
+                    className="aaos-edit-field"
+                    value={editedEventId}
+                    onChange={(e: any) => setEditedEventId(e.target.value)}
+                    placeholder="Enter Event ID"
                     spellCheck={false}
                   />
                 </td>
