@@ -234,11 +234,32 @@ export async function sendRequest(
       return null
     }
 
-    const data: AaosBridgeResponse = await res.json()
+    const json = await res.json()
 
-    // If the backend responds immediately with the value, dispatch the event
-    // so the UI updates without waiting for a WebSocket push.
-    if (data?.signalName && data.value !== undefined) {
+    // ORCA server wraps responses as { success: true, data: rustData }.
+    // The standalone backend returns flat { signalName, value, timestamp }.
+    // Normalise both shapes into AaosBridgeResponse before dispatching.
+    let data: AaosBridgeResponse | null = null
+
+    if (json?.signalName) {
+      // Standalone backend flat format
+      data = json as AaosBridgeResponse
+    } else if (json?.data?.signalName) {
+      // ORCA format: { success, data: { signalName, value, ... } }
+      data = json.data as AaosBridgeResponse
+    } else if (json?.data?.payload?.signalName) {
+      // ORCA nested format: { success, data: { payload: { signalName, value }, timestamp } }
+      data = {
+        signalName: json.data.payload.signalName,
+        value: json.data.payload.value ?? null,
+        timestamp: json.data.timestamp || new Date().toISOString(),
+        source: 'request',
+      }
+    }
+
+    // Dispatch if we resolved a value — updates the UI immediately without
+    // waiting for the WebSocket push.
+    if (data?.signalName && data.value !== undefined && data.value !== null) {
       dispatchSignalUpdate(data)
     }
 
