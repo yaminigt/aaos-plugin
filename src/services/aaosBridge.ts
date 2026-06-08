@@ -8,14 +8,12 @@
  *     └─ aaosBridge (this file)
  *         ├─ REST  → POST /v2/aaos/request    (fire a GET or SET request)
  *         │          GET  /v2/aaos/latest      (poll latest signal value)
- *         └─ WS    → ws://localhost:3201       (live push from bridge server)
+ *         └─ WS    → ws://localhost:3201/aaos-ws  (live push from ORCA bridge server)
  *
- * TODO (future integration by SOME/IP team):
- *   The backend at localhost:3201 should forward request payloads to the
- *   Rust bridge service at http://localhost:8080/config, which is expected
- *   to translate JSON requests into SOME/IP frames and forward them to the
- *   Cuttlefish AAOS virtual device. Responses from the device arrive back
- *   via the WebSocket channel.
+ * The ORCA backend at localhost:3201 forwards plugin requests to the
+ * Rust bridge service at http://127.0.0.1:8080/config, which translates
+ * them into SOME/IP frames for the Cuttlefish AAOS virtual device.
+ * Responses arrive back via POST /v2/aaos/response → WebSocket broadcast.
  */
 
 // ---------------------------------------------------------------------------
@@ -23,7 +21,8 @@
 // ---------------------------------------------------------------------------
 
 const BASE_URL = 'http://localhost:3201'
-const WS_URL = 'ws://localhost:3201'
+// ORCA server exposes the WebSocket at /aaos-ws (see aaos.service.js initWebSocket)
+const WS_URL = 'ws://localhost:3201/aaos-ws'
 
 /** Reconnect delay steps (ms): 1s → 2s → 4s → 8s → 16s → cap at 30s */
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000]
@@ -141,20 +140,33 @@ export function connectWebSocket(): WebSocket | null {
 
   ws.onmessage = (event: MessageEvent) => {
     try {
-      const data: AaosBridgeResponse = JSON.parse(event.data as string)
+      const raw = JSON.parse(event.data as string) as Record<string, unknown>
 
-      // Validate minimum required fields before dispatching.
+      // ORCA server wraps broadcasts as: { event: 'aaos:response', data: { payload, timestamp } }
+      // Unwrap that envelope so the UI receives a flat AaosBridgeResponse.
+      let data: AaosBridgeResponse | null = null
+
+      if (raw?.event === 'aaos:response' && raw?.data) {
+        // ORCA broadcast format
+        const inner = raw.data as { payload?: Record<string, unknown>; timestamp?: string }
+        const payload = inner?.payload ?? {}
+        data = {
+          signalName: (payload.signalName as string) ?? '',
+          value: (payload.value as string | number | boolean | null) ?? null,
+          timestamp: inner?.timestamp ?? new Date().toISOString(),
+          source: 'websocket',
+        }
+      } else if ((raw as any)?.signalName) {
+        // Direct flat format (from standalone backend/src/server.ts)
+        data = raw as unknown as AaosBridgeResponse
+      }
+
       if (!data?.signalName) {
         logWs('Received message missing signalName — skipped.')
         return
       }
 
-      logWs(
-        `Signal update received: ${data.signalName} = ${data.value}`,
-      )
-
-      // TODO (SOME/IP team): If SOME/IP payload needs further decoding
-      //   (e.g. byte array → float), do it here before dispatching.
+      logWs(`Signal update received: ${data.signalName} = ${data.value}`)
       dispatchSignalUpdate(data)
     } catch {
       logWs('Failed to parse incoming WebSocket message.')
