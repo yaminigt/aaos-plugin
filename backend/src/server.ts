@@ -131,6 +131,46 @@ registerRoute({
   },
 })
 
+// Dedicated inbound value push endpoint.
+// External sources (Rust bridge, test scripts, simulator) POST here to push
+// a decoded signal value into the plugin UI via WebSocket broadcast.
+// Body: { signalName: string, value: string | number | boolean | null, timestamp?: string }
+registerRoute({
+  method: 'POST',
+  path: '/v2/aaos/update',
+  handler: async (_req, res, body) => {
+    try {
+      const raw = JSON.parse(body) as {
+        signalName?: string
+        value?: string | number | boolean | null
+        timestamp?: string
+      }
+
+      if (!raw.signalName) {
+        sendJson(res, 400, { error: 'Missing required field: signalName' })
+        return
+      }
+
+      const pushed: AaosBridgeResponse = {
+        signalName: raw.signalName,
+        value: raw.value !== undefined ? raw.value : null,
+        timestamp: raw.timestamp || new Date().toISOString(),
+        source: 'websocket',
+      }
+
+      stashLatest(pushed)
+      broadcast(pushed)
+      log(`Value pushed for ${pushed.signalName}: ${pushed.value}`)
+      sendJson(res, 200, pushed)
+    } catch (err) {
+      sendJson(res, 400, {
+        error: 'Invalid update payload',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+  },
+})
+
 registerRoute({
   method: 'GET',
   path: '/v2/aaos/latest',
@@ -200,7 +240,7 @@ wss.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   log(`AAOS bridge server listening on http://localhost:${PORT}`)
-  log('Routes registered: POST /v2/aaos/request, GET /v2/aaos/latest')
+  log('Routes registered: POST /v2/aaos/request, POST /v2/aaos/update, GET /v2/aaos/latest')
 })
 
 server.on('error', (error: NodeJS.ErrnoException) => {
